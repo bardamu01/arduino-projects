@@ -6,8 +6,9 @@
 #define CANCEL_PIN  6
 
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by Unix time_t as ten ASCII digits
-#define TIME_HEADER  'T'   // Header tag for serial time sync message
-#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
+#define TIME_HEADER   'T'   // Header tag for serial time sync message
+#define ALARM_HEADER  'A'	
+#define TIME_REQUEST   7    // ASCII bell character requests a time sync message 
 
 #include <LiquidCrystal.h>
 #define LCD_CHARS_PER_ROW 16
@@ -31,29 +32,34 @@ void display(char* msg){
 	display(String(msg));
 }
 
-void processSyncMessage(){
+time_t processTimeMessage(char header){
 	// if time sync available from the serial port
 	// update time and return true
 	// Linux: TZ_adjust=2;  echo "T$(($(date +%s)+60*60*$TZ_adjust))" >> /dev/ttyACM0
 	while(Serial.available() >=  TIME_MSG_LEN ){
 		char c = Serial.read() ; 
-		if( c == TIME_HEADER ) {       
+		if( c == header ) {       
 			time_t pctime = 0;
 			for(int i=0; i < TIME_MSG_LEN -1; i++){   
 				c = Serial.read();          
 				if( c >= '0' && c <= '9'){   
 					pctime = (10 * pctime) + (c - '0') ;   
 				}
-			}   
-		setTime(pctime);
+			}
+		return pctime;
 		}  
 	}
+	return NULL;
 }
 
 void syncTime(){
+	time_t time;
 	while (timeStatus() == timeNotSet){ 
-		processSyncMessage();
-		delay(1000);
+		time = processTimeMessage(TIME_HEADER);
+		if (time != NULL){
+			setTime(time);
+		}
+		delay(500);
 	}
 }
 
