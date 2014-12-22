@@ -62,11 +62,9 @@ void syncTime(){
 	}
 }
 
-String getTime(){
-	time_t t = now();
+String formatTime(time_t t){
 	return String(String(hour(t)) + ":" + String(minute(t)) + ":" + String(second(t))); 
 }
-
 
 time_t getAlarmFromSerial(){
 	time_t alarm = NULL;
@@ -88,11 +86,19 @@ void soundAlarm(){
 	display("Beep! Beep!\nSNOOZE or CANCEL");
 	while (digitalRead(CANCEL_PIN) == HIGH){
 		beep(200, 250, 250);
+		//delay(100);
 	}
 }
 
+time_t alarms[5];
+
 void setupAlarm(time_t alarm){
+	alarms[0] = alarm;
 	Alarm.alarmOnce(hour(alarm), minute(alarm), second(alarm), soundAlarm);
+}
+
+time_t getNextAlarm(){
+	return alarms[0];
 }
 
 void setup(){
@@ -110,6 +116,6 @@ void setup(){
 }
 
 void loop(){
-	display("Time is:" + getTime());
+	display("T: " + formatTime(now())+ "\nA: " + formatTime(getNextAlarm()));
 	Alarm.delay(100);
 }
