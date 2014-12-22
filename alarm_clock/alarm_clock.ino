@@ -71,15 +71,13 @@ void beep(int freq, int period, int silence){
 
 void soundAlarm(){
 	beep(200, 250, 250);
-	beep(200, 250, 250);
-	beep(255, 250, 0);
 }
 
 void alarm(){
 	display("Beep! Beep!\nSNOOZE or CANCEL");
-	soundAlarm();
-	if (digitalRead(SNOOZE_PIN) == HIGH){
+	while (digitalRead(CANCEL_PIN) == HIGH){
 		soundAlarm();
+		delay(100);
 	}
 }
 
@@ -87,6 +85,7 @@ void setup(){
 	Serial.begin(9600);
 	lcd.begin(LCD_CHARS_PER_ROW, LCD_ROWS);
 	pinMode(ALARM_PIN, OUTPUT);
+	pinMode(CANCEL_PIN, INPUT_PULLUP);
 	pinMode(SNOOZE_PIN, INPUT_PULLUP);
 	
 	display("Waiting on time\nsync from serial...");
