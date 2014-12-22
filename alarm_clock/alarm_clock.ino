@@ -1,31 +1,34 @@
 #include <Time.h> // from: http://www.pjrc.com/teensy/td_libs_Time.html
 #include <TimeAlarms.h> 
 
-#define ALARM_PIN 8
-#define SNOOZE_PIN 7
-#define CANCEL_PIN 6
+#define ALARM_PIN   8
+#define SNOOZE_PIN  7
+#define CANCEL_PIN  6
 
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by Unix time_t as ten ASCII digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message
 #define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
 
 #include <LiquidCrystal.h>
-#define NR_CHARS_PER_ROW 16
-#define ROWS 2
+#define LCD_CHARS_PER_ROW 16
+#define LCD_ROWS 2
 //LiquidCrystal(rs, enable, d4, d5, d6, d7) 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
-void display(char* msg){
+void display(String msg){
 	lcd.clear();
-	String s = String(msg);
-	int newLine = s.indexOf("\n");
+	int newLine = msg.indexOf("\n");
 	if ( newLine == -1 ){
 		lcd.print(msg);
 	} else {
-		lcd.print(s.substring(0, newLine));
+		lcd.print(msg.substring(0, newLine));
 		lcd.setCursor(0, 1);
-		lcd.print(s.substring(newLine+1, s.length()));
+		lcd.print(msg.substring(newLine+1, msg.length()));
 	}
+}
+
+void display(char* msg){
+	display(String(msg));
 }
 
 void processSyncMessage(){
@@ -34,7 +37,6 @@ void processSyncMessage(){
 	// Linux: TZ_adjust=2;  echo "T$(($(date +%s)+60*60*$TZ_adjust))" >> /dev/ttyACM0
 	while(Serial.available() >=  TIME_MSG_LEN ){
 		char c = Serial.read() ; 
-		Serial.print(c);  
 		if( c == TIME_HEADER ) {       
 			time_t pctime = 0;
 			for(int i=0; i < TIME_MSG_LEN -1; i++){   
@@ -50,7 +52,6 @@ void processSyncMessage(){
 
 void syncTime(){
 	while (timeStatus() == timeNotSet){ 
-		Serial.println("waiting for sync message");
 		processSyncMessage();
 		delay(1000);
 	}
@@ -75,7 +76,6 @@ void soundAlarm(){
 }
 
 void alarm(){
-	lcd.clear();
 	display("Beep! Beep!\nSNOOZE or CANCEL");
 	soundAlarm();
 	if (digitalRead(SNOOZE_PIN) == HIGH){
@@ -85,11 +85,11 @@ void alarm(){
 
 void setup(){
 	Serial.begin(9600);
-	lcd.begin(NR_CHARS_PER_ROW, ROWS);
+	lcd.begin(LCD_CHARS_PER_ROW, LCD_ROWS);
 	pinMode(ALARM_PIN, OUTPUT);
 	pinMode(SNOOZE_PIN, INPUT_PULLUP);
 	
-	display("Waiting on time\nsync from serial");
+	display("Waiting on time\nsync from serial...");
 	syncTime();
 	
 	time_t t = now();
@@ -97,7 +97,6 @@ void setup(){
 }
 
 void loop(){
-	lcd.clear();
-	lcd.print("Time is:" + getTime());
+	display("Time is:" + getTime());
 	Alarm.delay(100);
 }
