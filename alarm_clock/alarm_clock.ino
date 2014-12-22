@@ -1,7 +1,7 @@
 #include <Time.h> // from: http://www.pjrc.com/teensy/td_libs_Time.html
 #include <TimeAlarms.h> 
 
-#define SNOOZE_SECONDS 10
+#define SNOOZE_SECONDS 60
 
 #define ALARM_PIN   8
 #define SNOOZE_PIN  7
@@ -90,8 +90,8 @@ bool snoozed(){
 	bool snoozePressed = digitalRead(SNOOZE_PIN) == LOW;
 	if (snoozePressed){
 		Alarm.timerOnce(SNOOZE_SECONDS, soundAlarm);
-		display("Snoozed!");
-		delay(500);
+		display("Snoozed! Shh for:\n" + String(SNOOZE_SECONDS) + " seconds");
+		delay(1500);
 	}
 	return snoozePressed;
 }
@@ -100,7 +100,7 @@ bool cancelled(){
 	bool cancelPressed = digitalRead(CANCEL_PIN) == LOW;
 	if (cancelPressed){
 		display("Cancelled!");
-		delay(500);
+		delay(1000);
 	}
 	return cancelPressed;
 }
