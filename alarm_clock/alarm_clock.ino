@@ -1,6 +1,8 @@
 #include <Time.h> // from: http://www.pjrc.com/teensy/td_libs_Time.html
 #include <TimeAlarms.h> 
 
+#define SNOOZE_SECONDS 10
+
 #define ALARM_PIN   8
 #define SNOOZE_PIN  7
 #define CANCEL_PIN  6
@@ -82,11 +84,31 @@ void beep(int freq, int period, int silence){
 	delay(silence);
 }
 
+void soundAlarm();
+
+bool snoozed(){
+	bool snoozePressed = digitalRead(SNOOZE_PIN) == LOW;
+	if (snoozePressed){
+		Alarm.timerOnce(SNOOZE_SECONDS, soundAlarm);
+		display("Snoozed!");
+		delay(500);
+	}
+	return snoozePressed;
+}
+
+bool cancelled(){
+	bool cancelPressed = digitalRead(CANCEL_PIN) == LOW;
+	if (cancelPressed){
+		display("Cancelled!");
+		delay(500);
+	}
+	return cancelPressed;
+}
+
 void soundAlarm(){
 	display("Beep! Beep!\nSNOOZE or CANCEL");
-	while (digitalRead(CANCEL_PIN) == HIGH){
+	while (!snoozed() && !cancelled()){
 		beep(200, 250, 250);
-		//delay(100);
 	}
 }
 
