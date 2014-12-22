@@ -33,8 +33,7 @@ void display(char* msg){
 }
 
 time_t processTimeMessage(char header){
-	// if time sync available from the serial port
-	// update time and return true
+	// return time message sent from serial
 	// Linux: TZ_adjust=2;  echo "T$(($(date +%s)+60*60*$TZ_adjust))" >> /dev/ttyACM0
 	while(Serial.available() >=  TIME_MSG_LEN ){
 		char c = Serial.read() ; 
@@ -59,13 +58,23 @@ void syncTime(){
 		if (time != NULL){
 			setTime(time);
 		}
-		delay(500);
+		delay(100);
 	}
 }
 
 String getTime(){
 	time_t t = now();
 	return String(String(hour(t)) + ":" + String(minute(t)) + ":" + String(second(t))); 
+}
+
+
+time_t getAlarmFromSerial(){
+	time_t alarm = NULL;
+	while (alarm == NULL){
+		alarm = processTimeMessage(ALARM_HEADER);
+		delay(100);
+	}
+	return alarm;
 }
 
 void beep(int freq, int period, int silence){
@@ -76,15 +85,14 @@ void beep(int freq, int period, int silence){
 }
 
 void soundAlarm(){
-	beep(200, 250, 250);
-}
-
-void alarm(){
 	display("Beep! Beep!\nSNOOZE or CANCEL");
 	while (digitalRead(CANCEL_PIN) == HIGH){
-		soundAlarm();
-		delay(100);
+		beep(200, 250, 250);
 	}
+}
+
+void setupAlarm(time_t alarm){
+	Alarm.alarmOnce(hour(alarm), minute(alarm), second(alarm), soundAlarm);
 }
 
 void setup(){
@@ -97,8 +105,8 @@ void setup(){
 	display("Waiting on time\nsync from serial...");
 	syncTime();
 	
-	time_t t = now();
-	Alarm.alarmOnce(hour(t), minute(t), second(t) + 10, alarm);
+	display("Waiting on alarm\nfrom serial...");
+	setupAlarm(getAlarmFromSerial());
 }
 
 void loop(){
