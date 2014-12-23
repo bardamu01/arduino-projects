@@ -1,3 +1,13 @@
+/*
+
+Alarm clock features:
+- time and alarm display
+- edit both time and alarm
+- alarm snooze and cancel
+- sync time and alarm over serial
+
+*/
+
 #include <Time.h> // from: http://www.pjrc.com/teensy/td_libs_Time.html
 #include <TimeAlarms.h> 
 
@@ -205,7 +215,6 @@ void setup(){
 	pinMode(ALARM_PIN, OUTPUT);
 	pinMode(CANCEL_PIN, INPUT_PULLUP);
 	pinMode(SNOOZE_PIN, INPUT_PULLUP);
-	setupAlarm(now()+10); 
 }
 
 void loop(){
@@ -213,7 +222,7 @@ void loop(){
 		case 3: display("T: " + formatTime(now())+ "\nA: " + formatTime(getNextAlarm())); 
 				break;
 		
-		case 2: setupAlarm(edit(getNextAlarm(), "Change alarm")); 
+		case 2: setupAlarm(edit(now(), "Change alarm")); 
 				break;
 		
 		case 1: setTime(edit(now(), "Change time")); 
