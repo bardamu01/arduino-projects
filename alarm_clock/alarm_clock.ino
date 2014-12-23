@@ -34,6 +34,14 @@ void display(char* msg){
 	display(String(msg));
 }
 
+String pad(int value){
+	return value < 10 ? "0" + String(value) : String(value);
+}
+
+String formatTime(time_t t){
+	return pad(hour(t)) + ":" + pad(minute(t)) + ":" + pad(second(t)); 
+}
+
 time_t processTimeMessage(char header){
 	// return time message sent from serial
 	// Linux: TZ_adjust=2;  echo "T$(($(date +%s)+60*60*$TZ_adjust))" >> /dev/ttyACM0
@@ -53,7 +61,7 @@ time_t processTimeMessage(char header){
 	return NULL;
 }
 
-void syncTime(){
+void syncTimeFromSerial(){
 	time_t time;
 	while (timeStatus() == timeNotSet){ 
 		time = processTimeMessage(TIME_HEADER);
@@ -62,10 +70,6 @@ void syncTime(){
 		}
 		delay(100);
 	}
-}
-
-String formatTime(time_t t){
-	return String(String(hour(t)) + ":" + String(minute(t)) + ":" + String(second(t))); 
 }
 
 time_t getAlarmFromSerial(){
@@ -77,6 +81,45 @@ time_t getAlarmFromSerial(){
 	return alarm;
 }
 
+void soundAlarm();
+
+static int snooze_pin_state = 1;
+static int cancel_pin_state = 1;
+
+bool buttonReleased(int* previous_state, int pin){
+	int new_state = digitalRead(pin);
+	bool released = *previous_state == 1 && new_state == 0;
+	*previous_state = new_state;
+	return released;
+}
+
+bool snoozeButtonReleased(){
+	return buttonReleased(&snooze_pin_state, SNOOZE_PIN);
+}
+
+bool cancelButtonReleased(){
+	return buttonReleased(&cancel_pin_state, CANCEL_PIN);
+}
+
+bool snoozed(){
+	bool snoozeReleased = snoozeButtonReleased();
+	if (snoozeReleased){
+		Alarm.timerOnce(SNOOZE_SECONDS, soundAlarm);
+		display("Snoozed! Shh for:\n" + String(SNOOZE_SECONDS) + " seconds");
+		delay(1500);
+	}
+	return snoozeReleased;
+}
+
+bool cancelled(){
+	bool cancelReleased = cancelButtonReleased();
+	if (cancelReleased){
+		display("Cancelled!");
+		delay(1000);
+	}
+	return cancelReleased;
+}
+
 void beep(int freq, int period, int silence){
 	analogWrite(ALARM_PIN, freq); 
 	delay(period);
@@ -84,29 +127,9 @@ void beep(int freq, int period, int silence){
 	delay(silence);
 }
 
-void soundAlarm();
-
-bool snoozed(){
-	bool snoozePressed = digitalRead(SNOOZE_PIN) == LOW;
-	if (snoozePressed){
-		Alarm.timerOnce(SNOOZE_SECONDS, soundAlarm);
-		display("Snoozed! Shh for:\n" + String(SNOOZE_SECONDS) + " seconds");
-		delay(1500);
-	}
-	return snoozePressed;
-}
-
-bool cancelled(){
-	bool cancelPressed = digitalRead(CANCEL_PIN) == LOW;
-	if (cancelPressed){
-		display("Cancelled!");
-		delay(1000);
-	}
-	return cancelPressed;
-}
-
 void soundAlarm(){
 	display("Beep! Beep!\nSNOOZE or CANCEL");
+	delay(250);
 	while (!snoozed() && !cancelled()){
 		beep(200, 250, 250);
 	}
@@ -123,21 +146,83 @@ time_t getNextAlarm(){
 	return alarms[0];
 }
 
+
+time_t edit(time_t time, String msg){
+	tmElements_t tm;
+	breakTime(time,tm);
+	
+	uint8_t* current = &tm.Hour;
+	int scale = 24;
+	String timeS;
+	
+	int blink_period = 400;
+	int blink_counter = 0;
+	
+	while (!cancelled()){
+		if (snoozeButtonReleased()){
+			//advance to next edit or finish
+			if (current == &tm.Second) {
+				break;
+			}
+			current = current == &tm.Minute ? &tm.Second : current;	
+			current = current == &tm.Hour ? &tm.Minute : current;
+			scale = 60;
+		}
+		
+		*current = int(float(1024-analogRead(A5))/1024*scale);
+		timeS = formatTime(makeTime(tm));
+	
+		if (blink_counter >= blink_period/2){
+			if (current == &tm.Hour){
+				timeS[0] = ' ';
+				timeS[1] = ' ';
+			}
+			if (current == &tm.Minute){
+				timeS[3] = ' ';
+				timeS[4] = ' ';
+			}
+			if (current == &tm.Second){
+				timeS[6] = ' ';
+				timeS[7] = ' ';
+			}
+		}
+		blink_counter = (blink_counter + 50) % blink_period;
+		
+		display(msg + ":\n" + timeS);
+		delay(50);
+	}
+	return makeTime(tm);
+}
+
+int getMode(){
+	return !snoozeButtonReleased()*2 + !cancelButtonReleased();
+}
+
+
 void setup(){
 	Serial.begin(9600);
 	lcd.begin(LCD_CHARS_PER_ROW, LCD_ROWS);
 	pinMode(ALARM_PIN, OUTPUT);
 	pinMode(CANCEL_PIN, INPUT_PULLUP);
 	pinMode(SNOOZE_PIN, INPUT_PULLUP);
-	
-	display("Waiting on time\nsync from serial...");
-	syncTime();
-	
-	display("Waiting on alarm\nfrom serial...");
-	setupAlarm(getAlarmFromSerial());
+	setupAlarm(now()+10); 
 }
 
 void loop(){
-	display("T: " + formatTime(now())+ "\nA: " + formatTime(getNextAlarm()));
+	switch(getMode()){
+		case 3: display("T: " + formatTime(now())+ "\nA: " + formatTime(getNextAlarm())); 
+				break;
+		
+		case 2: setupAlarm(edit(getNextAlarm(), "Change alarm")); 
+				break;
+		
+		case 1: setTime(edit(now(), "Change time")); 
+				break;
+		
+		case 0: display("Waiting on time\nsync from serial...");
+				syncTimeFromSerial();
+				display("Waiting on alarm\nfrom serial...");
+				setupAlarm(getAlarmFromSerial());
+	}
 	Alarm.delay(100);
 }
